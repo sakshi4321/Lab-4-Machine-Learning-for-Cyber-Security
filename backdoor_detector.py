@@ -64,13 +64,13 @@ def main():
     i = 0
 
     print("Pruning the network...")
-    for j, chIdx in enumerate(indexPrune):
+    for j, idx in enumerate(indexPrune):
 
         if i==len(thresholds):
             break
        
-        lastConvLayerWeights[:, :, :, chIdx] = 0
-        lastConvLayerBiases[chIdx] = 0
+        lastConvLayerWeights[:, :, :, idx] = 0
+        lastConvLayerBiases[idx] = 0
 
         
         B_clone.get_layer("conv_3").set_weights([lastConvLayerWeights, lastConvLayerBiases])
@@ -78,11 +78,9 @@ def main():
         
         clean_accuracy_valid = calculate_model_accuracy(B_clone, clean_x_valid, clean_y_valid)
         repaired_net = G(B, B_clone)
-        test_accuracy, test_asr = evaluate_model(
-            repaired_net, clean_x_test, clean_y_test, bd_x_test, bd_y_test
-        )
+        test_accuracy, test_asr = evaluate_model(repaired_net, clean_x_test, clean_y_test, bd_x_test, bd_y_test)
         model_performance.append((j + 1, test_accuracy, test_asr))
-        print(f"{j + 1} neurons removed, test_accuracy on clean dataset: {test_accuracy:.3f}% ASR: {test_asr:.3f}%")
+        print(f"{j + 1} neurons were removed, test_accuracy on clean dataset: {test_accuracy:.3f}%, ASR: {test_asr:.3f}%")
 
       
         if clean_accuracy - clean_accuracy_valid >= thresholds[i]:
