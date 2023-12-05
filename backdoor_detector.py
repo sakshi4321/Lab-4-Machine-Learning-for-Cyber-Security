@@ -66,7 +66,7 @@ def main():
     print("Pruning the network...")
     for j, idx in enumerate(indexPrune):
 
-        if i==len(thresholds):
+        if i==len(thresholds)-2:
             break
        
         lastConvLayerWeights[:, :, :, idx] = 0
@@ -82,7 +82,7 @@ def main():
         model_performance.append((j + 1, test_accuracy, test_asr))
         print(f"{j + 1} neurons were removed, test_accuracy on clean dataset: {test_accuracy:.3f}%, ASR: {test_asr:.3f}%")
 
-      
+        #save model if threshhold is reached
         if clean_accuracy - clean_accuracy_valid >= thresholds[i]:
             
             model_filename = f"{B_path[:-3]}_prime_{thresholds[i]}_percent_threshold.h5"
@@ -93,31 +93,20 @@ def main():
         
 
     model_performance = np.array(model_performance)
-    save_model_performance_plot(model_performance)
-    save_model_performance_data(model_performance)
+    save_model_performance(model_performance)
+   
 
     return 
 
 
-def save_model_performance_plot(model_performance):
-    # Calculate the fraction of neurons pruned
-    """
-    Saves the model performance plot to an image file.
-    Args:
-        model_performance: Model performance data to plot.
-    Returns: 
-        None: Does not return anything, saves plot to file.
-    Processing Logic:
-        - Calculate fraction of nodes pruned from total nodes and performance data
-        - Create a figure and set size
-        - Plot clean accuracy and attack success vs fraction pruned
-        - Add labels, title, and legend to plot
-        - Save figure as image file "plot.png"
-    """
+def save_model_performance(model_performance):
+  
+    
+    # Calculate fraction of nodes pruned
     total_nodes = model_performance[-1, 0]
     fraction_nodes_pruned = model_performance[:, 0] / total_nodes
 
-   
+    # Create plot
     fig = plt.figure(figsize=(8, 6))
     plt.plot(fraction_nodes_pruned, model_performance[:, 1], label="Clean Classification Accuracy")
     plt.plot(fraction_nodes_pruned, model_performance[:, 2], label="Backdoor Attack Success")
@@ -125,29 +114,15 @@ def save_model_performance_plot(model_performance):
     plt.ylabel("Rate")
     plt.title("Model accuracy and ASR vs fraction of nodes pruned")
     plt.legend()
+
+     # Save figure
     fig.savefig("plot.png")
 
-
-def save_model_performance_data(model_performance):
-    
-    """
-    Saves model performance data to a CSV file.
-    Args:
-        model_performance: Model performance data to save
-    Returns: 
-        None: No return value
-    - Defines headings for the CSV columns
-    - Opens a CSV file for writing
-    - Writes the headings row
-    - Writes each row of model performance data
-    """
-    
+    #save to csv for table
     headings = ["Neurons Pruned", "Accuracy", "ASR"]
    
-    model_performance = np.around(model_performance, decimals=3)
-
-    
-    headings = ["Neurons Pruned", "Accuracy", "ASR"]
+   #just get values till 3 decimal places
+    model_performance = np.around(model_performance, decimals=3)  
     total_nodes = model_performance[-1, 0]
     fraction_nodes_pruned = model_performance[:, 0] / total_nodes
     model_performance[:, 0] = fraction_nodes_pruned
@@ -160,61 +135,93 @@ def save_model_performance_data(model_performance):
         writer = csv.writer(csvfile)
         writer.writerow(headings)
         writer.writerows(model_performance)
+
+
+
+    
+
+    
   
-def evaluate_model(bd_model, cl_x_test, cl_y_test, bd_x_test, bd_y_test):
-    """
-    Evaluates the performance of a given model on clean and backdoored test data.
+def evaluate_model(bd_model, clean_x_test, clean_y_test, bd_x_test, bd_y_test):
+   
 
+    """
+    Evaluates a model on clean and backdoored test data
     Args:
-        bd_model: The model to evaluate.
-        cl_x_test: The clean test input data.
-        cl_y_test: The clean test labels.
-        bd_x_test: The backdoored test input data.
-        bd_y_test: The backdoored test labels.
-
-    Returns:
-        A tuple containing the model's clean accuracy and ASR.
+        bd_model: Backdoored model to evaluate
+        clean_x_test: Clean test features 
+        clean_y_test: Clean test labels
+        bd_x_test: Backdoored test features
+        bd_y_test: Backdoored test labels
+    Returns: 
+        clean_accuracy, asr: Clean accuracy and attack success rate
+    - Calculates clean accuracy on clean test data
+    - Calculates attack success rate on backdoored test data 
+    - Returns both metrics
     """
-
-    clean_accuracy = calculate_model_accuracy(bd_model, cl_x_test, cl_y_test)
+    clean_accuracy = calculate_model_accuracy(bd_model, clean_x_test, clean_y_test)
     asr = calculate_model_asr(bd_model, bd_x_test, bd_y_test)
     return clean_accuracy, asr
 
 
-def calculate_model_accuracy(bd_model, cl_x_test, cl_y_test):
+def calculate_model_accuracy(bd_model, clean_x_test, clean_y_test):
+    
     """
-    Calculates the accuracy of a given model on clean test data.
-
+    Calculate accuracy of a model on clean test data
     Args:
-        bd_model: The model to evaluate.
-        cl_x_test: The clean test input data.
-        cl_y_test: The clean test labels.
-
+        bd_model: Trained model
+        clean_x_test: Clean test input data 
+        clean_y_test: Clean test label data
     Returns:
-        The model's clean accuracy.
+        clean_accuracy: Accuracy percentage of model on clean test data
+    Processing Logic:
+        - Predict labels for clean test data using the model
+        - Compare predicted labels with actual clean test labels
+        - Calculate percentage of predictions that matched actual labels
+        - Return the accuracy percentage
+    
     """
 
-    cl_label_p = np.argmax(bd_model(cl_x_test), axis=1)
-    clean_accuracy = np.mean(np.equal(cl_label_p, cl_y_test)) * 100
-    return clean_accuracy
+    # Predict labels for clean test data
+    predicted_labels = np.argmax(bd_model(clean_x_test), axis=1)
+    
+    # Compare predicted labels with actual labels 
+    matches = np.equal(predicted_labels, clean_y_test)
+    
+    # Calculate accuracy percentage
+    accuracy = np.mean(matches) * 100
+    
+    return accuracy
 
 
 def calculate_model_asr(bd_model, bd_x_test, bd_y_test):
-    """
-    Calculates the ASR (average success rate) of a given model on backdoored test data.
-
+    
+    """Calculates the accuracy score of a model on test data
     Args:
-        bd_model: The model to evaluate.
-        bd_x_test: The backdoored test input data.
-        bd_y_test: The backdoored test labels.
-
-    Returns:
-        The model's ASR.
+        bd_model: The trained model
+        bd_x_test: The test data inputs
+        bd_y_test: The test data true labels
+    Returns: 
+        asr: The accuracy score of the model on test data as a percentage
+    Processing Logic:
+        - Predict labels for test data using the model
+        - Compare predicted labels to true labels
+        - Calculate percentage of predictions that matched true labels
+        - Return the accuracy score as a percentage
+    
     """
+    
+    # Predict labels for test data
+    predicted_labels = np.argmax(bd_model(bd_x_test), axis=1)
+    
+    # Compare predicted labels to true labels
+    matches = np.equal(predicted_labels, bd_y_test)
+    
+    # Calculate percentage of predictions that matched true labels
+    accuracy_score = np.mean(matches) * 100
+    
+    return accuracy_score
 
-    bd_label_p = np.argmax(bd_model(bd_x_test), axis=1)
-    asr = np.mean(np.equal(bd_label_p, bd_y_test)) * 100
-    return asr
 
 
 if __name__ == "__main__":
