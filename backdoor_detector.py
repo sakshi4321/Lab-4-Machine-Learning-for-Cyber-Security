@@ -31,7 +31,7 @@ def main():
     """
     thresholds=[2, 4, 10]
     # Model Paths
-    B_path = "model/bd_net.h5"
+    B_path = "models/bd_net.h5"
     Dvalid = "data/valid.h5"
     Dtest = "data/test.h5"
     Btest = "data/bd_test.h5"
