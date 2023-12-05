@@ -66,7 +66,7 @@ def main():
     print("Pruning the network...")
     for j, idx in enumerate(indexPrune):
 
-        if i==len(thresholds)-2:
+        if i==len(thresholds):
             break
        
         lastConvLayerWeights[:, :, :, idx] = 0
